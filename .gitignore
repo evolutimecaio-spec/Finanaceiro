@@ -1,0 +1,13 @@
+finance.db
+*.db
+*.sqlite
+*.sqlite3
+dados_planilha_real.json
+gastos-originais.json
+*.xlsm
+*.xlsx
+.env
+.env.*
+__pycache__/
+.venv/
+*.pyc
