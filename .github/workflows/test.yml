@@ -1,0 +1,55 @@
+name: Test finance app
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: finance
+          POSTGRES_PASSWORD: test_only_password
+          POSTGRES_DB: finance_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U finance -d finance_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Check Python syntax
+        run: python -m py_compile app.py
+      - name: Test PostgreSQL startup and routes
+        env:
+          DATABASE_URL: postgresql://finance:test_only_password@localhost:5432/finance_test
+          SECRET_KEY: test-secret-not-for-production
+        run: |
+          python - <<'PY'
+          import app
+          client=app.app.test_client()
+          r=client.get('/setup')
+          assert r.status_code == 200, (r.status_code,r.data[:300])
+          with app.conn() as c:
+              assert c.execute('SELECT COUNT(*) FROM cards').fetchone()['count'] >= 0
+          print('PostgreSQL startup and setup route OK')
+          PY
+      - name: Test SQLite fallback
+        env:
+          FINANCE_DB: /tmp/finance-ci-test.db
+          SECRET_KEY: test-secret-not-for-production
+        run: |
+          python - <<'PY'
+          import app
+          client=app.app.test_client()
+          assert client.get('/setup').status_code == 200
+          print('SQLite startup and setup route OK')
+          PY
