@@ -134,7 +134,7 @@ def logout():session.clear();return redirect(url_for('login'))
 @app.route('/invite',methods=['GET','POST'])
 def invite():
  code=request.args.get('code') or request.form.get('code','')
- with conn() as c:row=c.execute('SELECT * FROM invitations WHERE code=? AND used=0 AND expires>?',(code,)).fetchone()
+ with conn() as c:row=c.execute('SELECT * FROM invitations WHERE code=? AND used=0 AND expires>?',(code,datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'))).fetchone()
  if not row:return 'Convite inválido ou expirado.',400
  if request.method=='POST':
   name=request.form.get('name','').strip();email=request.form.get('email','').strip().lower();pwd=request.form.get('password','')
@@ -200,7 +200,7 @@ def home():
   initial_row=c.execute("SELECT value FROM settings WHERE key='initial_balance'").fetchone();initial_balance=int(initial_row['value']) if initial_row else 0
   paid_rows=c.execute('SELECT p.month,e.* FROM payments p JOIN entries e ON e.id=p.entry_id').fetchall()
   paid_invoices=c.execute('SELECT card_id,month FROM invoice_payments').fetchall()
-  actual_balance=initial_balance+sum((1 if x['kind']=='income' else -1)*value_for(x,x['month']) for x in paid_rows if x['kind']!='credit')-sum(sum(value_for(e,r['month']) for e in c.execute('SELECT * FROM entries WHERE kind="credit" AND card_id=?',(r['card_id'],)).fetchall() if occurs(e,r['month'])) for r in paid_invoices)
+  actual_balance=initial_balance+sum((1 if x['kind']=='income' else -1)*value_for(x,x['month']) for x in paid_rows if x['kind']!='credit')-sum(sum(value_for(e,r['month']) for e in c.execute("SELECT * FROM entries WHERE kind='credit' AND card_id=?",(r['card_id'],)).fetchall() if occurs(e,r['month'])) for r in paid_invoices)
  income=sum(e['month_value'] for e in entries if e['kind']=='income');expense=sum(e['month_value'] for e in entries if e['kind']!='income')
  card_data=[]
  for card in cards:
